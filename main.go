@@ -9,7 +9,7 @@ import (
 
 var db *sqlx.DB
 
-var dbConf = model.Config{
+var dbConf = models.Config{
 	Host:     "localhost",
 	Port:     "5432",
 	Username: "test",

@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS nats
 	    last TEXT
 );`
 
-func DBInit(cfg model.Config) *sqlx.DB {
+func DBInit(cfg models.Config) *sqlx.DB {
 	db, err := sqlx.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s", cfg.Host, cfg.Port, cfg.Username, cfg.DBName, cfg.Password, cfg.SSLMode))
 
 	if err != nil {
