@@ -1,77 +1,79 @@
 package service
 
 import (
+	"database/sql"
 	"fmt"
-	"github.com/MrDavudov/LessonPosgresql/models"
-	"github.com/jmoiron/sqlx"
 	"log"
+
+	"github.com/MrDavudov/LessonPosgresql/models"
+	_ "github.com/lib/pq"
 )
 
-var Db *sqlx.DB
+var Db *sql.DB
 
-var InitQuery = `
+var InitQueryCreate = `
 CREATE TABLE IF NOT EXISTS orders
-	(order_uid TEXT UNIQUE,
-	track_number TEXT,
-	entry TEXT,
-	locale TEXT,
-	internal_signature TEXT,
-	customer_id TEXT,
-	delivery_service TEXT,
-	shardkey TEXT,
+	(order_uid VARCHAR(100) UNIQUE,
+	track_number VARCHAR(100),
+	entry VARCHAR(100),
+	locale VARCHAR(100),
+	internal_signature VARCHAR(100),
+	customer_id VARCHAR(100),
+	delivery_service VARCHAR(100),
+	shardkey VARCHAR(100),
 	sm_id INT,
-	date_created TEXT,
-	oof_shard TEXT
+	date_created VARCHAR(100),
+	oof_shard VARCHAR(100)
 );
 
 CREATE TABLE IF NOT EXISTS deliveries
-	(order_uid TEXT UNIQUE,
-	name TEXT,
-	phone TEXT,
-	zip TEXT,
-	city TEXT,
-	address TEXT,
-	region TEXT,
-	email TEXT
+	(order_uid VARCHAR(100) UNIQUE,
+	name VARCHAR(100),
+	phone VARCHAR(100),
+	zip VARCHAR(100),
+	city VARCHAR(100),
+	address VARCHAR(100),
+	region VARCHAR(100),
+	email VARCHAR(100)
 );
 
 CREATE TABLE IF NOT EXISTS payments
-	(order_uid TEXT UNIQUE,
-	request_id TEXT,
-	currency TEXT,
-	provider TEXT,
+	(order_uid VARCHAR(100) UNIQUE,
+	request_id VARCHAR(100),
+	currency VARCHAR(100),
+	provider VARCHAR(100),
 	amount INT,
 	payment_dt INT,
-	bank TEXT,
+	bank VARCHAR(100),
 	delivery_cost INT,
 	goods_total INT,
 	custom_fee INT
 );
 
 CREATE TABLE IF NOT EXISTS items
-	(order_uid TEXT,
+	(order_uid VARCHAR(100),
 	chrt_id INT,
-	track_number TEXT,
-	price TEXT,
-	rid TEXT,
-	name TEXT,
+	track_number VARCHAR(100),
+	price VARCHAR(100),
+	rid VARCHAR(100),
+	name VARCHAR(100),
 	sale INT,
-	size TEXT,
+	size VARCHAR(100),
 	total_price INT,
 	nm_id INT,
-	brand TEXT,
+	brand VARCHAR(100),
 	status INT
 );
 
 CREATE TABLE IF NOT EXISTS nats
 	(
-	    host TEXT UNIQUE,
-	    last TEXT
+	    host VARCHAR(100) UNIQUE,
+	    last VARCHAR(100)
 );`
 
-func DBInit(cfg models.Config) *sqlx.DB {
-	db, err := sqlx.Open("postgres", fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s", cfg.Host, cfg.Port, cfg.Username, cfg.DBName, cfg.Password, cfg.SSLMode))
-
+func DBInit(cfg models.Config) *sql.DB {
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.DBName, cfg.SSLMode)
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("Error connect db: %s", err)
 	}
@@ -81,7 +83,21 @@ func DBInit(cfg models.Config) *sqlx.DB {
 		log.Fatalf("Error ping db: %s", err)
 	}
 
-	_, err = db.Exec(InitQuery)
+	_, err = db.Exec(InitQueryCreate)
 
 	return db
+}
+
+func DBCreate(models.Model) {
+	var id int
+	q := `INSERT INTO orders 
+			(track_number, entry, locale, internal_signature,
+			customer_id, delivery_service, shardkey, sm_id, date_created,
+			oof_shard) 
+		VALUES 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id`
+
+	r.db.QueryRow(
+
 }

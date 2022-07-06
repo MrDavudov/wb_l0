@@ -1,20 +1,20 @@
 package main
 
 import (
+	"database/sql"
 	"github.com/MrDavudov/LessonPosgresql/models"
 	"github.com/MrDavudov/LessonPosgresql/service"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 )
 
-var db *sqlx.DB
+var db *sql.DB
 
-var dbConf = models.Config{
+var dbConf = models.Config {
 	Host:     "localhost",
 	Port:     "5432",
 	Username: "test",
-	Password: "test",
-	DBName:   "wb_test",
+	Password: "admin",
+	DBName:   "postgres",
 	SSLMode:  "disable",
 }
 
@@ -23,7 +23,5 @@ func main() {
 	r.StrictSlash(true)
 
 	db = service.DBInit(dbConf)
-	db.SetMaxOpenConns(100)
 	service.Db = db
-
 }
