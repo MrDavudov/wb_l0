@@ -9,7 +9,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"go.uber.org/zap"
 
-	"wb_l0/order/rep"
+	"wb_l0/models/rep"
 )
 
 type Cache struct {

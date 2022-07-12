@@ -1,4 +1,4 @@
-module github.com/MrDavudov/LessonPosgresql
+module github.com/MrDavudov/wb_l0
 
 go 1.18
 
