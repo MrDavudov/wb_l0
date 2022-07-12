@@ -1,6 +1,6 @@
 package models
 
-type Model struct {
+type Order struct {
 	OrderUid          string   `json:"order_uid" db:"order_uid"`
 	TrackNumber       string   `json:"track_number" db:"track_number"`
 	Entry             string   `json:"entry" db:"entry"`
@@ -66,7 +66,7 @@ type Config struct {
 	SSLMode  string
 }
 
-func (m *Model) PrepareIn() {
+func (m *Order) PrepareIn() {
 	m.Delivery.OrderUid = m.OrderUid
 	m.Payment.OrderUid = m.OrderUid
 
@@ -75,7 +75,7 @@ func (m *Model) PrepareIn() {
 	}
 }
 
-func (m *Model) PrepareOut() {
+func (m *Order) PrepareOut() {
 	m.Delivery.OrderUid = ""
 	m.Payment.OrderUid = ""
 
