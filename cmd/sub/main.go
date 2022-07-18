@@ -13,7 +13,7 @@ import (
 
 	"github.com/MrDavudov/wb_l0/nats_listener"
 	"github.com/MrDavudov/wb_l0/server"
-	"github.com/MrDavudov/wb_l0/storage/inmem"
+	"github.com/MrDavudov/wb_l0/cache"
 	"github.com/MrDavudov/wb_l0/storage/postgres"
 )
 
