@@ -20,7 +20,7 @@ import (
 const (
 	databaseURI = "postgresql://postgres:admin@localhost:5432/postgres"
 	addr        = ":8080"
-	clusterName = "my_cluster"
+	clusterName = "wb-l0"
 	clientID    = "orderServer"
 	durableName = "orderSeverSub"
 	subject     = "orders"

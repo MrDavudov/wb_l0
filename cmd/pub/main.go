@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	clusterName = "my_cluster"
+	clusterName = "wb-l0"
 	clientID    = "orderPub"
 	subject     = "orders"
 )
