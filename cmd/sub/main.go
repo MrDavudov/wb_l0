@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	databaseURI = "postgresql://postgres:admin@localhost:5432/postgres"
+	databaseURI = "postgres://admin:admin@localhost:5432/postgres_db"
 	addr        = ":8080"
-	clusterName = "wb-l0"
+	clusterName = "my_cluster"
 	clientID    = "orderServer"
 	durableName = "orderSeverSub"
 	subject     = "orders"

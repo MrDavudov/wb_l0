@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	pgUser        = "postgres"
+	pgUser        = "admin"
 	pgPassword    = "admin"
-	pgDatabase    = "postgres"
+	pgDatabase    = "postgres_db"
 	containerPort = "5432/tcp"
 )
 

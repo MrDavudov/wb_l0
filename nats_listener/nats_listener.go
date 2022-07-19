@@ -21,7 +21,8 @@ type NATSListener struct {
 // New creates a new connection to the nats-streaming-server and registers a callback method that
 // processes incoming orders.
 func New(stanCluster, clientID, durableName, subject string, s storage.Storage) (NATSListener, error) {
-	sc, err := stan.Connect(stanCluster, clientID)
+	var NatsURL string = "nats://127.0.0.1:4222"
+	sc, err := stan.Connect(stanCluster, clientID, stan.NatsURL(NatsURL), stan.MaxPubAcksInflight(1000))
 	if err != nil {
 		return NATSListener{}, err
 	}
