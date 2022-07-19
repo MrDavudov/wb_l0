@@ -1,4 +1,4 @@
-package inmem
+package cache
 
 // inmem is in-memory cache that could be also used as independed repository.
 

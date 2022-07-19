@@ -13,14 +13,13 @@ import (
 )
 
 const (
-	clusterName = "my_cluster"
+	clusterName = "NATS"
 	clientID    = "orderPub"
 	subject     = "orders"
-	NatsURL 	= "nats://127.0.0.1:4222"
 )
 
 func main() {
-	sc, err := stan.Connect(clusterName, clientID, stan.NatsURL(NatsURL), stan.MaxPubAcksInflight(1000))
+	sc, err := stan.Connect(clusterName, clientID)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -20,7 +20,7 @@ import (
 const (
 	databaseURI = "postgres://admin:admin@localhost:5432/postgres_db"
 	addr        = ":8080"
-	clusterName = "my_cluster"
+	clusterName = "NATS"
 	clientID    = "orderServer"
 	durableName = "orderSeverSub"
 	subject     = "orders"
@@ -33,7 +33,7 @@ func main() {
 	}
 	defer logIfError(pg.Close)
 
-	s, err := inmem.NewCache(inmem.WithPersistentStorage(pg))
+	s, err := cache.NewCache(cache.WithPersistentStorage(pg))
 	must(err)
 
 	nl, err := nats_listener.New(clusterName, clientID, durableName, subject, s)
