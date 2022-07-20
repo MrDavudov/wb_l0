@@ -12,7 +12,7 @@ import (
 	"github.com/bxcodec/faker/v3"
 	"github.com/nats-io/stan.go"
 
-	"github.com/MrDavudov/wb-l0/models"
+	"github.com/MrDavudov/wb_l0/models"
 )
 
 type appEnv struct {

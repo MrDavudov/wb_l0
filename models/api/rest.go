@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"github.com/MrDavudov/wb-l0/models/repository"
+	"github.com/MrDavudov/wb_l0/models/repository"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
-	"github.com/MrDavudov/wb-l0/cache"
+	"github.com/MrDavudov/wb_l0/cache"
 )
 
 type API struct {

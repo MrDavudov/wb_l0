@@ -14,10 +14,10 @@ import (
 	"github.com/nats-io/stan.go"
 	"go.uber.org/zap"
 
-	"github.com/MrDavudov/wb-l0/cache"
-	"github.com/MrDavudov/wb-l0/models"
-	orderAPI "github.com/MrDavudov/wb-l0/models/api"
-	orderStore "github.com/MrDavudov/wb-l0/models/repository"
+	"github.com/MrDavudov/wb_l0/cache"
+	"github.com/MrDavudov/wb_l0/models"
+	orderAPI "github.com/MrDavudov/wb_l0/models/api"
+	orderStore "github.com/MrDavudov/wb_l0/models/repository"
 )
 
 func main() {
