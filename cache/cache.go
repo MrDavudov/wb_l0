@@ -1,98 +1,80 @@
 package cache
 
-// inmem is in-memory cache that could be also used as independed repository.
-
 import (
-	"fmt"
-	"log"
-	"sync"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
 
-	"github.com/MrDavudov/wb_l0/storage"
+	lru "github.com/hashicorp/golang-lru"
+	"go.uber.org/zap"
+
+	"github.com/MrDavudov/wb-l0/models/repository"
 )
 
-var _ storage.Storage = (*Cache)(nil)
-
-type (
-	// Cache is an in-memory implementation of storage.Storage.
-	// It could be used as indepened repository or use another storage.Storage object
-	// for persistent storage.
-	Cache struct {
-		mu                *sync.RWMutex
-		repository        map[string]string
-		persistentStorage storage.Storage
-	}
-
-	StorageOpt func(s *Cache) error
-)
-
-// NewCache creates a new in-memory repository and registers persistent storage if provided.
-func NewCache(opts ...StorageOpt) (*Cache, error) {
-	s := &Cache{
-		mu:         &sync.RWMutex{},
-		repository: make(map[string]string),
-	}
-	for _, opt := range opts {
-		if err := opt(s); err != nil {
-			return nil, fmt.Errorf("storage: cache: could not apply option: %w", err)
-		}
-	}
-
-	return s, nil
+type Cache struct {
+	cache      *lru.Cache
+	size       int32
+	orderStore repository.Querier
+	logger     *zap.Logger
 }
 
-// WithPersistentStorage registers a given storage.Storage object as persistent storage.
-func WithPersistentStorage(ps storage.Storage) StorageOpt {
-	return func(s *Cache) error {
-		orders, err := ps.GetAll()
-		if err != nil {
-			return err
-		}
-		for _, o := range orders {
-			s.Store(o.OrderUID, o.JSONOrder)
-		}
-		s.persistentStorage = ps
-		if len(orders) > 0 {
-			log.Printf("storage: inmem: %d record(s) successfully imported from the database", len(orders))
-		}
-		return nil
+func NewCache(size int, store repository.Querier, logger *zap.Logger) (*Cache, error) {
+	cache, err := lru.New(size)
+	if err != nil {
+		return nil, err
 	}
+
+	c := &Cache{
+		cache:      cache,
+		size:       int32(size),
+		orderStore: store,
+		logger:     logger,
+	}
+
+	return c, nil
 }
 
-// Store implements storage.Storage interface.
-func (s *Cache) Store(orderUID, jsonOrder string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.repository[orderUID]; ok {
-		return storage.ErrAlreadyExists
-	}
-	s.repository[orderUID] = jsonOrder
-	if s.persistentStorage != nil {
-		s.persistentStorage.Store(orderUID, jsonOrder)
-	}
-	return nil
+func (c *Cache) Store(key string, value json.RawMessage) {
+	c.cache.ContainsOrAdd(key, value)
 }
 
-// Get implements storage.Storage interface.
-func (s *Cache) Get(orderUID string) (string, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	order, ok := s.repository[orderUID]
+func (c *Cache) Get(ctx context.Context, key string) (json.RawMessage, bool, error) {
+	v, ok := c.cache.Get(key)
+	if ok {
+		c.logger.Info("got cache hit")
+	}
 	if !ok {
-		return "", storage.ErrNotFound
+		o, err := c.orderStore.GetOrderByID(ctx, key)
+		if errors.Is(err, sql.ErrNoRows) {
+			return json.RawMessage{}, false, nil
+		}
+		if err != nil {
+			return json.RawMessage{}, false, err
+		}
+		c.Store(o.OrderUid, o.Data)
+		v = o.Data
 	}
-	return order, nil
+
+	order, _ := v.(json.RawMessage)
+
+	return order, true, nil
 }
 
-// GetAll implements storage.Storage interface.
-func (s *Cache) GetAll() ([]storage.OrderDB, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	orders := make([]storage.OrderDB, 0, len(s.repository))
-	for uid, order := range s.repository {
-		orders = append(orders, storage.OrderDB{
-			OrderUID:  uid,
-			JSONOrder: order,
-		})
+func (c *Cache) Recover(ctx context.Context) error {
+	params := repository.ListOrdersParams{
+		ID:    0,
+		Limit: c.size,
 	}
-	return orders, nil
+
+	orders, err := c.orderStore.ListOrders(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range orders {
+		c.Store(v.OrderUid, v.Data)
+	}
+
+	return nil
 }

@@ -1,73 +1,131 @@
 package main
 
-// orderserver is a service that listens to nats-streaming-server
-// and stores all incoming oreders (from the subject "orders")
-// to the postgres database using in-memory cache
-
 import (
 	"context"
-	"log"
+	"database/sql"
+	"encoding/json"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"github.com/MrDavudov/wb_l0/nats_listener"
-	"github.com/MrDavudov/wb_l0/server"
-	"github.com/MrDavudov/wb_l0/cache"
-	"github.com/MrDavudov/wb_l0/storage/postgres"
-)
+	_ "github.com/lib/pq"
+	"github.com/nats-io/stan.go"
+	"go.uber.org/zap"
 
-const (
-	databaseURI = "postgres://admin:admin@localhost:5432/postgres_db"
-	addr        = ":8080"
-	clusterName = "NATS"
-	clientID    = "orderServer"
-	durableName = "orderSeverSub"
-	subject     = "orders"
+	"github.com/MrDavudov/wb-l0/cache"
+	"github.com/MrDavudov/wb-l0/models"
+	orderAPI "github.com/MrDavudov/wb-l0/models/api"
+	orderStore "github.com/MrDavudov/wb-l0/models/repository"
 )
 
 func main() {
-	pg, err := postgres.NewStorage(databaseURI)
+	logger, err := zap.NewProduction()
 	if err != nil {
-		log.Fatal(err)
+		os.Exit(1)
 	}
-	defer logIfError(pg.Close)
+	defer logger.Sync()
+	zap.ReplaceGlobals(logger)
 
-	s, err := cache.NewCache(cache.WithPersistentStorage(pg))
-	must(err)
+	logger.Info("reading config")
+	config, err := NewConfig()
+	if err != nil {
+		logger.Error("can't decode config", zap.Error(err))
+		return
+	}
 
-	nl, err := nats_listener.New(clusterName, clientID, durableName, subject, s)
-	must(err)
-	defer logIfError(nl.Close)
+	logger.Info("connecting to database")
+	db, err := sql.Open(config.DBDriver, config.DBSource)
+	if err != nil {
+		logger.Error("can't open database connection", zap.Error(err), zap.String("db driver", config.DBDriver), zap.String("db source", config.DBSource))
+		return
+	}
+	defer db.Close()
 
-	log.Println("NATS Listener started")
+	if err = db.Ping(); err != nil {
+		logger.Error("can't ping database", zap.Error(err), zap.String("db driver", config.DBDriver), zap.String("db source", config.DBSource))
+		return
+	}
 
-	server, err := server.New(addr, s)
-	must(err)
-	go logIfError(server.ListenAndServe)
-	log.Printf("HTTP server is listening at %s", addr)
-	defer func() {
-		if err := server.Shutdown(context.Background()); err != nil {
-			log.Println(err)
+	store := orderStore.New(db)
+
+	logger.Info("recovering cache")
+	c, err := cache.NewCache(config.CacheSize, store, logger)
+	if err != nil {
+		logger.Warn("can't create cache", zap.Error(err))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.ShutdownTimeout)*time.Second)
+	defer cancel()
+	err = c.Recover(ctx)
+	if err != nil {
+		logger.Warn("can't recover cache", zap.Error(err))
+	}
+
+	logger.Info("connecting to stan")
+	sc, err := stan.Connect(config.ClusterID, config.ClientID, stan.NatsURL(config.NatsURL), stan.MaxPubAcksInflight(1000))
+	if err != nil {
+		logger.Fatal("cat't connect to stan", zap.Error(err))
+	}
+
+	_, err = sc.Subscribe("orders", func(msg *stan.Msg) {
+		err = insertMessage(msg.Data, store, c)
+		if err != nil {
+			logger.Info("can't store order", zap.Error(err))
+		}
+	}, stan.DeliverAllAvailable(), stan.DurableName(config.DurableName))
+
+	if err != nil {
+		logger.Fatal("cat't subscribe to channel", zap.Error(err))
+	}
+
+	api := orderAPI.API{}
+	router := api.NewRouter(store, c)
+
+	srv := &http.Server{
+		Addr:        config.HTTPServerAddress,
+		Handler:     router,
+		ReadTimeout: time.Duration(config.ReadTimeout) * time.Second,
+		IdleTimeout: time.Duration(config.IdleTimeout) * time.Second,
+	}
+
+	logger.Info("running http server")
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("can't start server", zap.Error(err), zap.String("server address", config.HTTPServerAddress))
 		}
 	}()
 
-	sigint := make(chan os.Signal, 1)
-	signal.Notify(sigint, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-	<-sigint
-	log.Println("Shutting down...")
+	// graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	logger.Info("received an interrupt, closing stan connection and stopping server")
+	sc.Close()
+	timeout, cancel := context.WithTimeout(context.Background(), time.Duration(config.ShutdownTimeout)*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(timeout); err != nil {
+		logger.Error("can't shutdown http server", zap.Error(err))
+	}
 }
 
-func must(err error) {
+func insertMessage(data []byte, store *orderStore.Queries, c *cache.Cache) error {
+	o := new(order.Order)
+	err := json.Unmarshal(data, o)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-}
 
-// logIfError is used to log an error thrown by the function that is running in a gouroutine
-// or deferred function.
-func logIfError(fn func() error) {
-	if err := fn(); err != nil {
-		log.Println(err)
+	params := orderStore.CreateOrderParams{
+		OrderUid: o.OrderUID,
+		Data:     data,
 	}
+
+	err = store.CreateOrder(context.Background(), params)
+	if err != nil {
+		return err
+	}
+	c.Store(o.OrderUID, data)
+
+	return nil
 }
