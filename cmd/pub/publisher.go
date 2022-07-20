@@ -54,7 +54,7 @@ func (app *appEnv) fromArgs(args []string) error {
 }
 
 func (app *appEnv) publishMessage() {
-	o := new(order.Order)
+	o := new(models.Order)
 	err := faker.FakeData(o)
 	if err != nil {
 		log.Printf("can't create fake data: %s", err.Error())

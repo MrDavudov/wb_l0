@@ -16,7 +16,7 @@ import (
 
 	"github.com/MrDavudov/wb_l0/cache"
 	"github.com/MrDavudov/wb_l0/models"
-	orderAPI "github.com/MrDavudov/wb_l0/models/api"
+	orderAPI "github.com/MrDavudov/wb_l0/server"
 	orderStore "github.com/MrDavudov/wb_l0/models/repository"
 )
 
@@ -110,7 +110,7 @@ func main() {
 }
 
 func insertMessage(data []byte, store *orderStore.Queries, c *cache.Cache) error {
-	o := new(order.Order)
+	o := new(models.Order)
 	err := json.Unmarshal(data, o)
 	if err != nil {
 		return err
